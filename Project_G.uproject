@@ -9,5 +9,11 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
+	],
+	"TargetPlatforms": [
+		"LinuxNoEditor",
+		"WindowsNoEditor",
+		"AllDesktop",
+		"IOS"
 	]
 }
