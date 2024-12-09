@@ -60,3 +60,15 @@ FString AClientManager::ReceiveResponse()
     return TEXT("");
 }
 
+void AClientManager::SendDrawMessage()
+{
+    FString Message = "Draw";
+    int32 BytesSent = send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    if (BytesSent == SOCKET_ERROR) {
+        int32 ErrorCode = WSAGetLastError();
+        UE_LOG(LogTemp, Warning, TEXT("Send failed with error: %d"), ErrorCode);
+    } else {
+        UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), *Message);
+    }
+}

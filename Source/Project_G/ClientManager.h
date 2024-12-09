@@ -28,6 +28,9 @@ public:
 	void SendRequest(const FString& Request);
 	FString ReceiveResponse();
 
+	UFUNCTION(BlueprintCallable, Category = "Network")
+	void SendDrawMessage(); // test, draw the card request from server
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
