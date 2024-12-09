@@ -3,6 +3,9 @@
 
 #include "ServerManager.h"
 #include "Engine/Engine.h"
+#include <Misc/OutputDeviceNull.h>
+#include "Async/Async.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 // Sets default values
 AServerManager::AServerManager()
@@ -79,7 +82,10 @@ void AServerManager::RunServer()
         }
 
         UE_LOG(LogTemp, Log, TEXT("Client connected"));
-        HandleClient(ClientSocket);
+        Async(EAsyncExecution::Thread, [this, ClientSocket]()
+            {
+                HandleClient(ClientSocket);
+            });
     }
 
     closesocket(ListenSocket);
@@ -97,14 +103,14 @@ void AServerManager::BeginDestroy()
 
 void AServerManager::HandleClient(SOCKET ClientSocket)
 {
-    while (true) // Keep the connection open for multiple messages
+    while (true)
     {
         char Buffer[1024];
         int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
         if (BytesReceived <= 0)
         {
             UE_LOG(LogTemp, Log, TEXT("Connection closed by client or error occurred"));
-            break; // Exit the loop if the connection is closed
+            break;
         }
 
         Buffer[BytesReceived] = '\0';
@@ -113,19 +119,17 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
 
         if (Message == "Draw")
         {
-            if (DeckActor)
+            FString RowName = DrawCard();
+            if (!RowName.IsEmpty())
             {
-                // Виклик у головному потоці
-                AsyncTask(ENamedThreads::GameThread, [this]()
-                    {
-                        DeckActor->CallFunctionByNameWithArguments(TEXT("DrawCard"), *GLog, nullptr, true);
-                    });
+                send(ClientSocket, TCHAR_TO_ANSI(*RowName), RowName.Len(), 0);
+                UE_LOG(LogTemp, Log, TEXT("Sent card row name: %s"), *RowName);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("No card available to draw!"));
             }
         }
-
-        //// Відправка відповіді клієнту (опціонально)
-        //FString Response = TEXT("Message received");
-        //send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
     }
     closesocket(ClientSocket);
 }
@@ -140,14 +144,30 @@ void AServerManager::StartServer()
 
 FString AServerManager::DrawCard()
 {
-    if (Deck.Num() > 0)
+    if (!DeckActor)
     {
-        FString Card = Deck.Pop();
-        UE_LOG(LogTemp, Log, TEXT("Drew card: %s"), *Card);
-        return Card;
+        UE_LOG(LogTemp, Warning, TEXT("DeckActor is not set!"));
+        return TEXT("");
     }
-    return TEXT("Deck is empty");
+
+    FString ResultRowName;
+
+    // Прямий виклик ProcessEvent
+    UFunction* Function = DeckActor->FindFunction(FName("DrawCard"));
+    if (Function)
+    {
+        DeckActor->ProcessEvent(Function, &ResultRowName);
+        UE_LOG(LogTemp, Log, TEXT("Card drawn: %s"), *ResultRowName);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("DrawCard function not found on DeckActor."));
+    }
+
+    return ResultRowName;
 }
+
+
 
 void AServerManager::CloseSocket()
 {
