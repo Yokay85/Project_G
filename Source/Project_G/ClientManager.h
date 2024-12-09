@@ -26,6 +26,7 @@ public:
 	bool ConnectToServer(const FString& IP, int Port);
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	void SendRequest(const FString& Request);
+	UFUNCTION(BlueprintCallable, Category = "Client")
 	FString ReceiveResponse();
 
 	UFUNCTION(BlueprintCallable, Category = "Network")

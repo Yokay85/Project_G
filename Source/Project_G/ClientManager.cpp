@@ -55,10 +55,13 @@ FString AClientManager::ReceiveResponse()
     int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
     if (BytesReceived > 0)
     {
-        return FString(ANSI_TO_TCHAR(Buffer));
+        Buffer[BytesReceived] = '\0';
+        FString Response = FString(ANSI_TO_TCHAR(Buffer));
+        return Response;
     }
     return TEXT("");
 }
+
 
 void AClientManager::SendDrawMessage()
 {
