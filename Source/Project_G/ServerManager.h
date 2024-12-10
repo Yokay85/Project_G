@@ -19,16 +19,17 @@ struct FPlayerInfo
 	FString PlayerName;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FString> PlayerCards; 
+	TArray<FString> PlayerCards;
 
 	UPROPERTY(BlueprintReadWrite)
 	int32 PlayerScore;
 
+	SOCKET ClientSocket;
+
 	FPlayerInfo()
-		: PlayerName(TEXT("Unknown")), PlayerScore(0) {
+		: PlayerName(TEXT("Unknown")), PlayerScore(0), ClientSocket(INVALID_SOCKET) {
 	}
 };
-
 UCLASS()
 class PROJECT_G_API AServerManager : public AActor
 {
@@ -38,6 +39,9 @@ private:
 	SOCKET ListenSocket;
 	bool bStopServer = false;
 	TMap<FString, FPlayerInfo> Players;
+	FString CurrentPlayerID;
+	TArray<FString> PlayerOrder;
+	int32 CurrentPlayerIndex = 0;
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deck")
@@ -55,8 +59,11 @@ public:
 	void CloseSocket();
 	void AddPlayer(SOCKET ClientSocket, const FString& PlayerName);
 	void AddCardToPlayer(SOCKET ClientSocket, const FString& CardRowName);
+	void NotifyPlayerTurn(const FString& ClientID);
+	void PassTurnToNextPlayer();
 	FString DrawCard();
 	int32 CalculateScore(const TArray<FString>& PlayerCards);
+	bool IsPlayerTurn(const FString& ClientID);
 
 protected:
 	// Called when the game starts or when spawned

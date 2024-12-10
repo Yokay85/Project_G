@@ -75,3 +75,26 @@ void AClientManager::SendDrawMessage()
         UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), *Message);
     }
 }
+
+void AClientManager::SendIsMyTurnRequest()
+{
+    FString Message = "IsMyTurn";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+    UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), *Message);
+}
+
+FString AClientManager::ReceiveIsMyTurnResponse()
+{
+    char Buffer[1024];
+    int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+    if (BytesReceived > 0)
+    {
+        Buffer[BytesReceived] = '\0';
+        FString Response = FString(ANSI_TO_TCHAR(Buffer));
+        UE_LOG(LogTemp, Log, TEXT("Received response: %s"), *Response);
+
+        return Response;
+    }
+    UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), "Failed to recive response");
+    return "false";
+}

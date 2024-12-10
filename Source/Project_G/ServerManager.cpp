@@ -108,8 +108,6 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
 {
     FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
 
-    AddPlayer(ClientSocket, ClientID);
-
     while (true)
     {
         char Buffer[1024];
@@ -124,27 +122,50 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
         FString Message = FString(ANSI_TO_TCHAR(Buffer));
         UE_LOG(LogTemp, Log, TEXT("Received message from %s: %s"), *ClientID, *Message);
 
-        if (Message == "Draw")
+        if (Message == "IsMyTurn")
         {
-            FString RowName = DrawCard();
-            if (!RowName.IsEmpty())
+            if (CurrentPlayerID.IsEmpty())
             {
-                AddCardToPlayer(ClientSocket, RowName);
-
-                send(ClientSocket, TCHAR_TO_ANSI(*RowName), RowName.Len(), 0);
-                UE_LOG(LogTemp, Log, TEXT("Sent card row name: %s to player %s."), *RowName, *ClientID);
+                UE_LOG(LogTemp, Warning, TEXT("CurrentPlayerID is not set!"));
+                FString Response = "false";
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
             }
             else
             {
-                FString ErrorMessage = TEXT("Deck is empty.");
-                send(ClientSocket, TCHAR_TO_ANSI(*ErrorMessage), ErrorMessage.Len(), 0);
-                UE_LOG(LogTemp, Warning, TEXT("Deck is empty."));
+                FString Response = (ClientID == CurrentPlayerID) ? "true" : "false";
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+                UE_LOG(LogTemp, Log, TEXT("Sent IsMyTurn response to %s: %s (CurrentPlayerID: %s)"), *ClientID, *Response, *CurrentPlayerID);
+            }
+        }
+        else if (Message == "Draw")
+        {
+            if (ClientID == CurrentPlayerID)
+            {
+                FString RowName = DrawCard();
+                if (!RowName.IsEmpty())
+                {
+                    AddCardToPlayer(ClientSocket, RowName);
+
+                    send(ClientSocket, TCHAR_TO_ANSI(*RowName), RowName.Len(), 0);
+                    UE_LOG(LogTemp, Log, TEXT("Sent card row name: %s to player %s."), *RowName, *ClientID);
+
+                    PassTurnToNextPlayer();
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("Deck is empty."));
+                }
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Player %s tried to act out of turn."), *ClientID);
             }
         }
     }
 
     closesocket(ClientSocket);
 }
+
 
 
 void AServerManager::StartServer()
@@ -237,15 +258,24 @@ int32 AServerManager::CalculateScore(const TArray<FString>& PlayerCards)
 
 void AServerManager::AddPlayer(SOCKET ClientSocket, const FString& PlayerName)
 {
-    AsyncTask(ENamedThreads::GameThread, [this, ClientSocket, PlayerName]()
-        {
-            FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
+    FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
 
+    AsyncTask(ENamedThreads::GameThread, [this, ClientSocket, ClientID, PlayerName]()
+        {
             if (!Players.Contains(ClientID))
             {
                 FPlayerInfo NewPlayer;
                 NewPlayer.PlayerName = PlayerName;
+                NewPlayer.ClientSocket = ClientSocket;
                 Players.Add(ClientID, NewPlayer);
+                PlayerOrder.Add(ClientID);
+
+                if (PlayerOrder.Num() == 1)
+                {
+                    CurrentPlayerID = ClientID;
+                    CurrentPlayerIndex = 0;
+                    UE_LOG(LogTemp, Log, TEXT("First player added. CurrentPlayerID set to %s"), *CurrentPlayerID);
+                }
 
                 UE_LOG(LogTemp, Log, TEXT("Player %s added with ClientID %s."), *PlayerName, *ClientID);
             }
@@ -269,7 +299,6 @@ void AServerManager::AddCardToPlayer(SOCKET ClientSocket, const FString& CardRow
                 FPlayerInfo& Player = Players[ClientID];
                 Player.PlayerCards.Add(CardRowName);
 
-                // Оновлення рахунку
                 Player.PlayerScore = CalculateScore(Player.PlayerCards);
 
                 UE_LOG(LogTemp, Log, TEXT("Added card %s to player %s. Current score: %d"),
@@ -282,6 +311,21 @@ void AServerManager::AddCardToPlayer(SOCKET ClientSocket, const FString& CardRow
         });
 }
 
+void AServerManager::PassTurnToNextPlayer()
+{
+    if (PlayerOrder.Num() == 0) return;
+
+    CurrentPlayerIndex = (CurrentPlayerIndex + 1) % PlayerOrder.Num();
+    CurrentPlayerID = PlayerOrder[CurrentPlayerIndex];
+
+    UE_LOG(LogTemp, Log, TEXT("It's now %s's turn."), *CurrentPlayerID);
+}
+
+
+bool AServerManager::IsPlayerTurn(const FString& ClientID)
+{
+    return ClientID == CurrentPlayerID;
+}
 
 
 
