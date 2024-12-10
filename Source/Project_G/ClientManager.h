@@ -37,6 +37,9 @@ public:
 	void SendDrawMessage();
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
+	void SendStandMessage();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
 	FString ReceiveResponse();
 
 protected:

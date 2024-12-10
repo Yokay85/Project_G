@@ -132,7 +132,7 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
             }
             else
             {
-                FString Response = (ClientID == CurrentPlayerID) ? "true" : "false";
+                FString Response = (IsPlayerTurn(ClientID)) ? "true" : "false";
                 send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
                 UE_LOG(LogTemp, Log, TEXT("Sent IsMyTurn response to %s: %s (CurrentPlayerID: %s)"), *ClientID, *Response, *CurrentPlayerID);
             }
@@ -161,12 +161,27 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 UE_LOG(LogTemp, Warning, TEXT("Player %s tried to act out of turn."), *ClientID);
             }
         }
+        if (Message == "Stand")
+        {
+            if (Players.Contains(ClientID))
+            {
+                FPlayerInfo& Player = Players[ClientID];
+                Player.bIsStanding = true;
+
+                UE_LOG(LogTemp, Log, TEXT("Player %s has chosen to stand. They will no longer take turns."), *ClientID);
+
+                PassTurnToNextPlayer();
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Player %s not found when sending Stand signal."), *ClientID);
+            }
+        }
+
     }
 
     closesocket(ClientSocket);
 }
-
-
 
 void AServerManager::StartServer()
 {
@@ -315,16 +330,50 @@ void AServerManager::PassTurnToNextPlayer()
 {
     if (PlayerOrder.Num() == 0) return;
 
-    CurrentPlayerIndex = (CurrentPlayerIndex + 1) % PlayerOrder.Num();
-    CurrentPlayerID = PlayerOrder[CurrentPlayerIndex];
+    int32 InitialIndex = CurrentPlayerIndex;
+    do
+    {
+        CurrentPlayerIndex = (CurrentPlayerIndex + 1) % PlayerOrder.Num();
+        CurrentPlayerID = PlayerOrder[CurrentPlayerIndex];
 
-    UE_LOG(LogTemp, Log, TEXT("It's now %s's turn."), *CurrentPlayerID);
+        if (Players.Contains(CurrentPlayerID) && !Players[CurrentPlayerID].bIsStanding)
+        {
+            UE_LOG(LogTemp, Log, TEXT("It's now %s's turn."), *CurrentPlayerID);
+            return;
+        }
+
+    } while (CurrentPlayerIndex != InitialIndex);
+
+    UE_LOG(LogTemp, Log, TEXT("All players are standing. The game is over."));
+    CurrentPlayerID = "";
 }
+
 
 
 bool AServerManager::IsPlayerTurn(const FString& ClientID)
 {
     return ClientID == CurrentPlayerID;
+}
+
+TMap<FString, int32> AServerManager::GetPlayerScores() const
+{
+    TMap<FString, int32> PlayerScores;
+
+    for (const auto& Pair : Players)
+    {
+        const FString& PlayerName = Pair.Value.PlayerName;
+        int32 PlayerScore = Pair.Value.PlayerScore;
+
+        PlayerScores.Add(PlayerName, PlayerScore);
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("Player Scores:"));
+    for (const auto& Pair : PlayerScores)
+    {
+        UE_LOG(LogTemp, Log, TEXT("Player: %s, Score: %d"), *Pair.Key, Pair.Value);
+    }
+
+    return PlayerScores;
 }
 
 
