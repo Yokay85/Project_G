@@ -81,6 +81,9 @@ void AServerManager::RunServer()
             continue;
         }
 
+        UE_LOG(LogTemp, Log, TEXT("Client connected with socket %d."), ClientSocket);
+        AddPlayer(ClientSocket, FString::Printf(TEXT("Player%d"), ClientSocket));
+
         UE_LOG(LogTemp, Log, TEXT("Client connected"));
         Async(EAsyncExecution::Thread, [this, ClientSocket]()
             {
@@ -103,36 +106,46 @@ void AServerManager::BeginDestroy()
 
 void AServerManager::HandleClient(SOCKET ClientSocket)
 {
+    FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
+
+    AddPlayer(ClientSocket, ClientID);
+
     while (true)
     {
         char Buffer[1024];
         int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
         if (BytesReceived <= 0)
         {
-            UE_LOG(LogTemp, Log, TEXT("Connection closed by client or error occurred"));
+            UE_LOG(LogTemp, Log, TEXT("Connection closed by client or error occurred."));
             break;
         }
 
         Buffer[BytesReceived] = '\0';
         FString Message = FString(ANSI_TO_TCHAR(Buffer));
-        UE_LOG(LogTemp, Log, TEXT("Received message: %s"), *Message);
+        UE_LOG(LogTemp, Log, TEXT("Received message from %s: %s"), *ClientID, *Message);
 
         if (Message == "Draw")
         {
             FString RowName = DrawCard();
             if (!RowName.IsEmpty())
             {
+                AddCardToPlayer(ClientSocket, RowName);
+
                 send(ClientSocket, TCHAR_TO_ANSI(*RowName), RowName.Len(), 0);
-                UE_LOG(LogTemp, Log, TEXT("Sent card row name: %s"), *RowName);
+                UE_LOG(LogTemp, Log, TEXT("Sent card row name: %s to player %s."), *RowName, *ClientID);
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("No card available to draw!"));
+                FString ErrorMessage = TEXT("Deck is empty.");
+                send(ClientSocket, TCHAR_TO_ANSI(*ErrorMessage), ErrorMessage.Len(), 0);
+                UE_LOG(LogTemp, Warning, TEXT("Deck is empty."));
             }
         }
     }
+
     closesocket(ClientSocket);
 }
+
 
 void AServerManager::StartServer()
 {
@@ -152,7 +165,6 @@ FString AServerManager::DrawCard()
 
     FString ResultRowName;
 
-    // Прямий виклик ProcessEvent
     UFunction* Function = DeckActor->FindFunction(FName("DrawCard"));
     if (Function)
     {
@@ -168,7 +180,6 @@ FString AServerManager::DrawCard()
 }
 
 
-
 void AServerManager::CloseSocket()
 {
     if (ListenSocket != INVALID_SOCKET)
@@ -179,5 +190,98 @@ void AServerManager::CloseSocket()
     }
     WSACleanup();
 }
+
+int32 AServerManager::CalculateScore(const TArray<FString>& PlayerCards)
+{
+    int32 Score = 0;
+    int32 Aces = 0;
+
+    for (const FString& Card : PlayerCards)
+    {
+        FString Suit;
+        FString CardValue;
+
+        for (int32 i = Card.Len() - 1; i >= 0; --i)
+        {
+            if (FChar::IsDigit(Card[i]) || Card[i] == 'A' || Card[i] == 'K' || Card[i] == 'Q' || Card[i] == 'J')
+            {
+                CardValue = Card.Mid(i);        
+                Suit = Card.Left(i);           
+                break;
+            }
+        }
+
+        if (CardValue == "A")
+        {
+            Aces++;
+            Score += 11; 
+        }
+        else if (CardValue == "K" || CardValue == "Q" || CardValue == "J")
+        {
+            Score += 10;
+        }
+        else
+        {
+            Score += FCString::Atoi(*CardValue); 
+        }
+    }
+
+    while (Score > 21 && Aces > 0)
+    {
+        Score -= 10;
+        Aces--;
+    }
+
+    return Score;
+}
+
+void AServerManager::AddPlayer(SOCKET ClientSocket, const FString& PlayerName)
+{
+    AsyncTask(ENamedThreads::GameThread, [this, ClientSocket, PlayerName]()
+        {
+            FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
+
+            if (!Players.Contains(ClientID))
+            {
+                FPlayerInfo NewPlayer;
+                NewPlayer.PlayerName = PlayerName;
+                Players.Add(ClientID, NewPlayer);
+
+                UE_LOG(LogTemp, Log, TEXT("Player %s added with ClientID %s."), *PlayerName, *ClientID);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s already exists."), *ClientID);
+            }
+        });
+}
+
+
+
+void AServerManager::AddCardToPlayer(SOCKET ClientSocket, const FString& CardRowName)
+{
+    AsyncTask(ENamedThreads::GameThread, [this, ClientSocket, CardRowName]()
+        {
+            FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
+
+            if (Players.Contains(ClientID))
+            {
+                FPlayerInfo& Player = Players[ClientID];
+                Player.PlayerCards.Add(CardRowName);
+
+                // Оновлення рахунку
+                Player.PlayerScore = CalculateScore(Player.PlayerCards);
+
+                UE_LOG(LogTemp, Log, TEXT("Added card %s to player %s. Current score: %d"),
+                    *CardRowName, *Player.PlayerName, Player.PlayerScore);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
+            }
+        });
+}
+
+
 
 
