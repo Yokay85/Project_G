@@ -10,6 +10,25 @@
 #include <ws2tcpip.h>
 #include "ServerManager.generated.h"
 
+USTRUCT(BlueprintType)
+struct FPlayerInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FString PlayerName;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FString> PlayerCards; 
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 PlayerScore;
+
+	FPlayerInfo()
+		: PlayerName(TEXT("Unknown")), PlayerScore(0) {
+	}
+};
+
 UCLASS()
 class PROJECT_G_API AServerManager : public AActor
 {
@@ -17,12 +36,12 @@ class PROJECT_G_API AServerManager : public AActor
 
 private:
 	SOCKET ListenSocket;
-	TArray<FString> Deck;
 	bool bStopServer = false;
+	TMap<FString, FPlayerInfo> Players;
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deck")
-	AActor* DeckActor; // Посилання на BP_Deck
+	AActor* DeckActor;
 
 	// Sets default values for this actor's properties
 	AServerManager();
@@ -34,7 +53,10 @@ public:
 	void HandleClient(SOCKET ClientSocket);
 	void BeginDestroy();
 	void CloseSocket();
+	void AddPlayer(SOCKET ClientSocket, const FString& PlayerName);
+	void AddCardToPlayer(SOCKET ClientSocket, const FString& CardRowName);
 	FString DrawCard();
+	int32 CalculateScore(const TArray<FString>& PlayerCards);
 
 protected:
 	// Called when the game starts or when spawned
