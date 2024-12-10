@@ -24,12 +24,16 @@ struct FPlayerInfo
 	UPROPERTY(BlueprintReadWrite)
 	int32 PlayerScore;
 
+	UPROPERTY(BlueprintReadWrite)
+	bool bIsStanding; // Гравець зупинився
+
 	SOCKET ClientSocket;
 
 	FPlayerInfo()
-		: PlayerName(TEXT("Unknown")), PlayerScore(0), ClientSocket(INVALID_SOCKET) {
+		: PlayerName(TEXT("Unknown")), PlayerScore(0), bIsStanding(false), ClientSocket(INVALID_SOCKET) {
 	}
 };
+
 UCLASS()
 class PROJECT_G_API AServerManager : public AActor
 {
@@ -53,13 +57,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Server")
 	void StartServer();
 
+	UFUNCTION(BlueprintCallable, Category = "Server")
+	TMap<FString, int32> GetPlayerScores() const;
+
 	void RunServer();
 	void HandleClient(SOCKET ClientSocket);
 	void BeginDestroy();
 	void CloseSocket();
 	void AddPlayer(SOCKET ClientSocket, const FString& PlayerName);
 	void AddCardToPlayer(SOCKET ClientSocket, const FString& CardRowName);
-	void NotifyPlayerTurn(const FString& ClientID);
 	void PassTurnToNextPlayer();
 	FString DrawCard();
 	int32 CalculateScore(const TArray<FString>& PlayerCards);
