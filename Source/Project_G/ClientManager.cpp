@@ -98,3 +98,11 @@ FString AClientManager::ReceiveIsMyTurnResponse()
     UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), "Failed to recive response");
     return "false";
 }
+
+void AClientManager::SendStandMessage()
+{
+    FString Message = "Stand";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), *Message);
+}
