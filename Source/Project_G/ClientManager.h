@@ -25,12 +25,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	bool ConnectToServer(const FString& IP, int Port);
 	UFUNCTION(BlueprintCallable, Category = "Client")
+	FString ReceiveIsMyTurnResponse();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
 	void SendRequest(const FString& Request);
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	void SendIsMyTurnRequest();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	void SendDrawMessage();
+
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	FString ReceiveResponse();
-
-	UFUNCTION(BlueprintCallable, Category = "Network")
-	void SendDrawMessage(); // test, draw the card request from server
 
 protected:
 	// Called when the game starts or when spawned
