@@ -146,3 +146,37 @@ int32 AClientManager::ReceiveScore()
     return -1;
 }
 
+void AClientManager::RequestIsStanding()
+{
+    if (ClientSocket == INVALID_SOCKET) {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return;
+    }
+
+    FString Message = "GetIsStanding";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    UE_LOG(LogTemp, Log, TEXT("Sent request for player's standing status."));
+}
+
+FString AClientManager::ReceiveIsStanding()
+{
+    if (ClientSocket == INVALID_SOCKET) {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return "";
+    }
+
+    char Buffer[1024];
+    int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+
+    if (BytesReceived > 0) {
+        Buffer[BytesReceived] = '\0';
+        FString Response = FString(ANSI_TO_TCHAR(Buffer));
+        UE_LOG(LogTemp, Log, TEXT("Received IsStanding response: %s"), *Response);
+        return Response;
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Failed to receive IsStanding response."));
+    return "";
+}
+

@@ -197,6 +197,21 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
             }
         }
+        else if (Message == "GetIsStanding") {
+            if (Players.Contains(ClientID)) {
+                const FPlayerInfo& Player = Players[ClientID];
+
+                FString Response = Player.bIsStanding ? "true" : "false";
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+
+                UE_LOG(LogTemp, Log, TEXT("Sent IsStanding response to %s: %s (CurrentPlayerID: %s)"), *ClientID, *Response, *CurrentPlayerID);
+            } else {
+                FString Response = "false";
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+
+                UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
+            }
+        }
 
     }
 
