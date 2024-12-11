@@ -7,6 +7,9 @@
 #include "Async/Async.h"
 #include "Kismet/KismetSystemLibrary.h"
 
+FCriticalSection Mutex;
+
+
 // Sets default values
 AServerManager::AServerManager()
 {
@@ -144,7 +147,9 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 FString RowName = DrawCard();
                 if (!RowName.IsEmpty())
                 {
+                    Mutex.Lock();
                     AddCardToPlayer(ClientSocket, RowName);
+                    Mutex.Unlock();
 
                     send(ClientSocket, TCHAR_TO_ANSI(*RowName), RowName.Len(), 0);
                     UE_LOG(LogTemp, Log, TEXT("Sent card row name: %s to player %s."), *RowName, *ClientID);
@@ -171,6 +176,7 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 UE_LOG(LogTemp, Log, TEXT("Player %s has chosen to stand. They will no longer take turns."), *ClientID);
 
                 PassTurnToNextPlayer();
+
             }
             else
             {
@@ -197,7 +203,8 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
             }
         }
-        else if (Message == "GetIsStanding") {
+        else if (Message == "GetIsStanding") 
+        {
             if (Players.Contains(ClientID)) {
                 const FPlayerInfo& Player = Players[ClientID];
 
@@ -212,6 +219,21 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
             }
         }
+        else if (Message == "CheckAllStanding")
+        {
+            bool AllStanding = AreAllPlayersStanding();
+            FString Response = AllStanding ? "true" : "false";
+            send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+
+            UE_LOG(LogTemp, Log, TEXT("Sent CheckAllStanding response to %s: %s"), *ClientID, *Response);
+        }
+        else if (Message == "RequestGameTable")
+        {
+            FString GameTable = GenerateGameTable();
+            send(ClientSocket, TCHAR_TO_ANSI(*GameTable), GameTable.Len(), 0);
+            UE_LOG(LogTemp, Log, TEXT("Sent game table to client %s: %s"), *ClientID, *GameTable);
+        }
+
 
     }
 
@@ -276,8 +298,15 @@ int32 AServerManager::CalculateScore(const TArray<FString>& PlayerCards)
         {
             if (FChar::IsDigit(Card[i]) || Card[i] == 'A' || Card[i] == 'K' || Card[i] == 'Q' || Card[i] == 'J')
             {
-                CardValue = Card.Mid(i);        
-                Suit = Card.Left(i);           
+                if (i > 0 && Card.Mid(i - 1, 2) == "10")
+                {
+                    CardValue = "10";
+                    Suit = Card.Left(i - 1);
+                    break;
+                }
+
+                CardValue = Card.Mid(i, 1); 
+                Suit = Card.Left(i);       
                 break;
             }
         }
@@ -291,9 +320,13 @@ int32 AServerManager::CalculateScore(const TArray<FString>& PlayerCards)
         {
             Score += 10;
         }
-        else
+        else if (CardValue.IsNumeric())
         {
             Score += FCString::Atoi(*CardValue); 
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Invalid CardValue detected: %s"), *CardValue);
         }
     }
 
@@ -306,8 +339,11 @@ int32 AServerManager::CalculateScore(const TArray<FString>& PlayerCards)
     return Score;
 }
 
+
+
 void AServerManager::AddPlayer(SOCKET ClientSocket, const FString& PlayerName)
 {
+
     FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
 
     AsyncTask(ENamedThreads::GameThread, [this, ClientSocket, ClientID, PlayerName]()
@@ -386,26 +422,31 @@ bool AServerManager::IsPlayerTurn(const FString& ClientID)
     return ClientID == CurrentPlayerID;
 }
 
-TMap<FString, int32> AServerManager::GetPlayerScores() const
+bool AServerManager::AreAllPlayersStanding() const
 {
-    TMap<FString, int32> PlayerScores;
-
     for (const auto& Pair : Players)
     {
-        const FString& PlayerName = Pair.Value.PlayerName;
-        int32 PlayerScore = Pair.Value.PlayerScore;
-
-        PlayerScores.Add(PlayerName, PlayerScore);
+        if (!Pair.Value.bIsStanding)
+        {
+            return false;
+        }
     }
-
-    UE_LOG(LogTemp, Log, TEXT("Player Scores:"));
-    for (const auto& Pair : PlayerScores)
-    {
-        UE_LOG(LogTemp, Log, TEXT("Player: %s, Score: %d"), *Pair.Key, Pair.Value);
-    }
-
-    return PlayerScores;
+    return true;
 }
+
+FString AServerManager::GenerateGameTable()
+{
+    FString Table = "GameTable::";
+    for (const auto& Pair : Players)
+    {
+        const FPlayerInfo& Player = Pair.Value;
+        Table += FString::Printf(TEXT("%s:%d;"), *Player.PlayerName, Player.PlayerScore);
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("Generated Game Table: %s"), *Table);
+    return Table;
+}
+
 
 
 
