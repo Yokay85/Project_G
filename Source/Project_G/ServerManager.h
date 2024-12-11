@@ -10,6 +10,7 @@
 #include <ws2tcpip.h>
 #include "ServerManager.generated.h"
 
+
 USTRUCT(BlueprintType)
 struct FPlayerInfo
 {
@@ -25,7 +26,7 @@ struct FPlayerInfo
 	int32 PlayerScore;
 
 	UPROPERTY(BlueprintReadWrite)
-	bool bIsStanding; // Гравець зупинився
+	bool bIsStanding;
 
 	SOCKET ClientSocket;
 
@@ -57,9 +58,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Server")
 	void StartServer();
 
-	UFUNCTION(BlueprintCallable, Category = "Server")
-	TMap<FString, int32> GetPlayerScores() const;
-
 	void RunServer();
 	void HandleClient(SOCKET ClientSocket);
 	void BeginDestroy();
@@ -70,6 +68,10 @@ public:
 	FString DrawCard();
 	int32 CalculateScore(const TArray<FString>& PlayerCards);
 	bool IsPlayerTurn(const FString& ClientID);
+	bool AreAllPlayersStanding() const;
+	FString GenerateGameTable();
+
+
 
 protected:
 	// Called when the game starts or when spawned
