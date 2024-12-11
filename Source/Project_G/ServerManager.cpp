@@ -161,7 +161,7 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
                 UE_LOG(LogTemp, Warning, TEXT("Player %s tried to act out of turn."), *ClientID);
             }
         }
-        if (Message == "Stand")
+        else if (Message == "Stand")
         {
             if (Players.Contains(ClientID))
             {
@@ -175,6 +175,26 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
             else
             {
                 UE_LOG(LogTemp, Warning, TEXT("Player %s not found when sending Stand signal."), *ClientID);
+            }
+        }
+        else if (Message == "GetMyScore")
+        {
+            if (Players.Contains(ClientID))
+            {
+                const FPlayerInfo& Player = Players[ClientID];
+                int32 PlayerScore = Player.PlayerScore;
+
+                FString Response = FString::Printf(TEXT("%d"), PlayerScore);
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+
+                UE_LOG(LogTemp, Log, TEXT("Sent score %d to client %s."), PlayerScore, *ClientID);
+            }
+            else
+            {
+                FString Response = "-1";
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+
+                UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
             }
         }
 
@@ -301,30 +321,26 @@ void AServerManager::AddPlayer(SOCKET ClientSocket, const FString& PlayerName)
         });
 }
 
-
-
 void AServerManager::AddCardToPlayer(SOCKET ClientSocket, const FString& CardRowName)
 {
-    AsyncTask(ENamedThreads::GameThread, [this, ClientSocket, CardRowName]()
-        {
-            FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
+    FString ClientID = FString::Printf(TEXT("Socket_%d"), static_cast<int32>(ClientSocket));
 
-            if (Players.Contains(ClientID))
-            {
-                FPlayerInfo& Player = Players[ClientID];
-                Player.PlayerCards.Add(CardRowName);
+    if (Players.Contains(ClientID))
+    {
+        FPlayerInfo& Player = Players[ClientID];
+        Player.PlayerCards.Add(CardRowName);
 
-                Player.PlayerScore = CalculateScore(Player.PlayerCards);
+        Player.PlayerScore = CalculateScore(Player.PlayerCards);
 
-                UE_LOG(LogTemp, Log, TEXT("Added card %s to player %s. Current score: %d"),
-                    *CardRowName, *Player.PlayerName, Player.PlayerScore);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
-            }
-        });
+        UE_LOG(LogTemp, Log, TEXT("Added card %s to player %s. Current score: %d"),
+            *CardRowName, *Player.PlayerName, Player.PlayerScore);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
+    }
 }
+
 
 void AServerManager::PassTurnToNextPlayer()
 {

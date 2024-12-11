@@ -28,6 +28,9 @@ public:
 	FString ReceiveIsMyTurnResponse();
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
+	FString ReceiveResponse();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
 	void SendRequest(const FString& Request);
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
@@ -40,7 +43,13 @@ public:
 	void SendStandMessage();
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
-	FString ReceiveResponse();
+	void RequestScore();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	int32 ReceiveScore();
+
+
+
 
 protected:
 	// Called when the game starts or when spawned

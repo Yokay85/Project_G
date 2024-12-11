@@ -106,3 +106,43 @@ void AClientManager::SendStandMessage()
 
     UE_LOG(LogTemp, Log, TEXT("Sent message: %s"), *Message);
 }
+
+void AClientManager::RequestScore()
+{
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return;
+    }
+
+    FString Message = "GetMyScore";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    UE_LOG(LogTemp, Log, TEXT("Sent request for player's own score."));
+}
+
+int32 AClientManager::ReceiveScore()
+{
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return -1;
+    }
+
+    char Buffer[1024];
+    int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+
+    if (BytesReceived > 0)
+    {
+        Buffer[BytesReceived] = '\0';
+        FString Response = FString(ANSI_TO_TCHAR(Buffer));
+        UE_LOG(LogTemp, Log, TEXT("Received score response: %s"), *Response);
+
+
+        return FCString::Atoi(*Response);
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Failed to receive score response."));
+    return -1;
+}
+
