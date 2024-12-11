@@ -24,6 +24,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	bool ConnectToServer(const FString& IP, int Port);
+
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	FString ReceiveIsMyTurnResponse();
 
@@ -48,7 +49,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	int32 ReceiveScore();
 
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	void RequestIsStanding();
 
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	FString ReceiveIsStanding();
 
 
 protected:
