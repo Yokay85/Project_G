@@ -10,6 +10,18 @@
 #include <ws2tcpip.h>
 #include "ClientManager.generated.h"
 
+USTRUCT(BlueprintType)
+struct FPlayerScoreEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FString PlayerName;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 PlayerScore;
+};
+
 UCLASS()
 class PROJECT_G_API AClientManager : public AActor
 {
@@ -47,6 +59,9 @@ public:
 	void RequestScore();
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
+	void RequestGameTable();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
 	int32 ReceiveScore();
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
@@ -54,6 +69,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	FString ReceiveIsStanding();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	TArray<FPlayerScoreEntry> ReceiveGameTable();
+
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	bool CheckAllStanding();
 
 
 protected:

@@ -180,3 +180,94 @@ FString AClientManager::ReceiveIsStanding()
     return "";
 }
 
+bool AClientManager::CheckAllStanding()
+{
+    FString Message = "CheckAllStanding";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    char Buffer[1024];
+    int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+    if (BytesReceived > 0)
+    {
+        Buffer[BytesReceived] = '\0';
+        FString Response = FString(ANSI_TO_TCHAR(Buffer));
+        UE_LOG(LogTemp, Log, TEXT("Received CheckAllStanding response: %s"), *Response);
+
+        return Response == "true";
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Failed to receive CheckAllStanding response."));
+    return false;
+}
+
+void AClientManager::RequestGameTable()
+{
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return;
+    }
+
+    FString Message = "RequestGameTable";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    UE_LOG(LogTemp, Log, TEXT("Sent request for game table."));
+}
+
+TArray<FPlayerScoreEntry> AClientManager::ReceiveGameTable()
+{
+    TArray<FPlayerScoreEntry> GameTable;
+
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return GameTable;
+    }
+
+    char Buffer[2048];
+    int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+
+    if (BytesReceived > 0)
+    {
+        Buffer[BytesReceived] = '\0';
+        FString Response = FString(ANSI_TO_TCHAR(Buffer));
+        UE_LOG(LogTemp, Log, TEXT("Received game table response: %s"), *Response);
+
+        if (Response.StartsWith("GameTable::"))
+        {
+            FString TableData = Response.Mid(11); // Remove "GameTable::"
+            TArray<FString> Entries;
+            TableData.ParseIntoArray(Entries, TEXT(";"), true);
+
+            for (const FString& Entry : Entries)
+            {
+                TArray<FString> Pair;
+                Entry.ParseIntoArray(Pair, TEXT(":"), true);
+                if (Pair.Num() == 2)
+                {
+                    FPlayerScoreEntry PlayerEntry;
+                    PlayerEntry.PlayerName = Pair[0];
+                    PlayerEntry.PlayerScore = FCString::Atoi(*Pair[1]);
+                    GameTable.Add(PlayerEntry);
+                }
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Invalid game table response: %s"), *Response);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Failed to receive game table response."));
+    }
+
+    return GameTable;
+}
+
+
+
+
+
+
+
