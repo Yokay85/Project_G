@@ -233,6 +233,14 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
             send(ClientSocket, TCHAR_TO_ANSI(*GameTable), GameTable.Len(), 0);
             UE_LOG(LogTemp, Log, TEXT("Sent game table to client %s: %s"), *ClientID, *GameTable);
         }
+        else if (Message == "Disconnect")
+        {
+            UE_LOG(LogTemp, Log, TEXT("Player %s disconnected."), *ClientID);
+
+            Mutex.Lock();
+            RemovePlayer(ClientID);
+            Mutex.Unlock();
+        }
 
 
     }
@@ -395,7 +403,11 @@ void AServerManager::AddCardToPlayer(SOCKET ClientSocket, const FString& CardRow
 
 void AServerManager::PassTurnToNextPlayer()
 {
-    if (PlayerOrder.Num() == 0) return;
+    if (PlayerOrder.Num() == 0)
+    {
+        UE_LOG(LogTemp, Log, TEXT("No players left in the game."));
+        return;
+    }
 
     int32 InitialIndex = CurrentPlayerIndex;
     do
@@ -406,14 +418,15 @@ void AServerManager::PassTurnToNextPlayer()
         if (Players.Contains(CurrentPlayerID) && !Players[CurrentPlayerID].bIsStanding)
         {
             UE_LOG(LogTemp, Log, TEXT("It's now %s's turn."), *CurrentPlayerID);
-            return;
+            return; 
         }
 
     } while (CurrentPlayerIndex != InitialIndex);
 
-    UE_LOG(LogTemp, Log, TEXT("All players are standing. The game is over."));
+    UE_LOG(LogTemp, Log, TEXT("All players are standing or no active players left. Game over."));
     CurrentPlayerID = "";
 }
+
 
 
 
@@ -446,6 +459,62 @@ FString AServerManager::GenerateGameTable()
     UE_LOG(LogTemp, Log, TEXT("Generated Game Table: %s"), *Table);
     return Table;
 }
+
+void AServerManager::RemovePlayer(const FString& ClientID)
+{
+    if (Players.Contains(ClientID))
+    {
+        Players.Remove(ClientID);
+        PlayerOrder.Remove(ClientID);
+
+        UE_LOG(LogTemp, Log, TEXT("Removed player with ClientID: %s"), *ClientID);
+
+        if (CurrentPlayerID == ClientID)
+        {
+            UE_LOG(LogTemp, Log, TEXT("Current player disconnected. Passing turn to the next player."));
+            CurrentPlayerID = ""; 
+            PassTurnToNextPlayer(); 
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found for removal."), *ClientID);
+    }
+}
+
+void AServerManager::ShutdownServer()
+{
+    UE_LOG(LogTemp, Log, TEXT("Shutting down the server..."));
+
+    for (auto& Pair : Players)
+    {
+        FPlayerInfo& Player = Pair.Value;
+        if (Player.ClientSocket != INVALID_SOCKET)
+        {
+            closesocket(Player.ClientSocket);
+            Player.ClientSocket = INVALID_SOCKET;
+            UE_LOG(LogTemp, Log, TEXT("Closed connection for player: %s"), *Pair.Key);
+        }
+    }
+
+    Players.Empty();
+    PlayerOrder.Empty();
+    CurrentPlayerID = "";
+
+    if (ListenSocket != INVALID_SOCKET)
+    {
+        closesocket(ListenSocket);
+        ListenSocket = INVALID_SOCKET;
+        UE_LOG(LogTemp, Log, TEXT("Server socket closed."));
+    }
+
+    WSACleanup();
+    UE_LOG(LogTemp, Log, TEXT("WinSock cleaned up. Server shutdown complete."));
+}
+
+
+
+
 
 
 

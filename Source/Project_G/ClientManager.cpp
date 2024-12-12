@@ -265,6 +265,35 @@ TArray<FPlayerScoreEntry> AClientManager::ReceiveGameTable()
     return GameTable;
 }
 
+void AClientManager::SendDisconnectMessage()
+{
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return;
+    }
+
+    FString Message = "Disconnect";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+
+    UE_LOG(LogTemp, Log, TEXT("Sent disconnect message to server."));
+}
+
+void AClientManager::DisconnectFromServer()
+{
+    SendDisconnectMessage();
+
+    if (ClientSocket != INVALID_SOCKET)
+    {
+        closesocket(ClientSocket);
+        ClientSocket = INVALID_SOCKET;
+
+        UE_LOG(LogTemp, Log, TEXT("Client disconnected from the server."));
+    }
+}
+
+
+
 
 
 
