@@ -36,6 +36,10 @@ void AServerManager::Tick(float DeltaTime)
 
 void AServerManager::RunServer()
 {
+    FString LocalIP = GetLocalIPAddress();
+    UE_LOG(LogTemp, Log, TEXT("Server's Local IP Address: %s"), *LocalIP);
+    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Cyan, FString::Printf(TEXT("Server IP: %s"), *LocalIP));
+
     WSADATA WsaData;
     sockaddr_in ServerAddr;
 
@@ -55,7 +59,14 @@ void AServerManager::RunServer()
 
     ServerAddr.sin_family = AF_INET;
     ServerAddr.sin_port = htons(7777);
-    ServerAddr.sin_addr.s_addr = INADDR_ANY;
+
+    if (inet_pton(AF_INET, TCHAR_TO_ANSI(*LocalIP), &ServerAddr.sin_addr) <= 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Invalid IP Address: %s"), *LocalIP);
+        closesocket(ListenSocket);
+        WSACleanup();
+        return;
+    }
 
     if (bind(ListenSocket, (sockaddr*)&ServerAddr, sizeof(ServerAddr)) == SOCKET_ERROR)
     {
@@ -526,4 +537,31 @@ void AServerManager::ShutdownServer()
     WSACleanup();
     UE_LOG(LogTemp, Log, TEXT("WinSock cleaned up. Server shutdown complete."));
 }
+
+FString AServerManager::GetLocalIPAddress()
+{
+    char HostName[256];
+    if (gethostname(HostName, sizeof(HostName)) == SOCKET_ERROR)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error getting hostname: %d"), WSAGetLastError());
+        return TEXT("Unknown");
+    }
+
+    struct hostent* HostInfo = gethostbyname(HostName);
+    if (!HostInfo)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error getting host info: %d"), WSAGetLastError());
+        return TEXT("Unknown");
+    }
+
+    struct in_addr* Address = (struct in_addr*)HostInfo->h_addr_list[0];
+    if (!Address)
+    {
+        return TEXT("Unknown");
+    }
+
+    FString IPAddress = FString(inet_ntoa(*Address));
+    return IPAddress;
+}
+
 
