@@ -76,6 +76,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	bool CheckAllStanding();
 
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	void DisconnectFromServer();
+
+
+	void SendDisconnectMessage();
+
 
 protected:
 	// Called when the game starts or when spawned
