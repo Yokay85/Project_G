@@ -74,6 +74,7 @@ public:
 	bool IsPlayerTurn(const FString& ClientID);
 	bool AreAllPlayersStanding() const;
 	FString GenerateGameTable();
+	FString GetLocalIPAddress();
 
 
 
