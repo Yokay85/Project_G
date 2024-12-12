@@ -241,8 +241,23 @@ void AServerManager::HandleClient(SOCKET ClientSocket)
             RemovePlayer(ClientID);
             Mutex.Unlock();
         }
+        else if (Message == "GetMyName")
+        {
+            if (Players.Contains(ClientID))
+            {
+                const FPlayerInfo& Player = Players[ClientID];
+                FString PlayerName = Player.PlayerName;
 
-
+                send(ClientSocket, TCHAR_TO_ANSI(*PlayerName), PlayerName.Len(), 0);
+                UE_LOG(LogTemp, Log, TEXT("Sent player name '%s' to client %s."), *PlayerName, *ClientID);
+            }
+            else
+            {
+                FString Response = "Unknown";
+                send(ClientSocket, TCHAR_TO_ANSI(*Response), Response.Len(), 0);
+                UE_LOG(LogTemp, Warning, TEXT("Player with ClientID %s not found."), *ClientID);
+            }
+        }
     }
 
     closesocket(ClientSocket);
@@ -511,11 +526,4 @@ void AServerManager::ShutdownServer()
     WSACleanup();
     UE_LOG(LogTemp, Log, TEXT("WinSock cleaned up. Server shutdown complete."));
 }
-
-
-
-
-
-
-
 

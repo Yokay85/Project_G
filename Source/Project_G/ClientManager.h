@@ -79,6 +79,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Client")
 	void DisconnectFromServer();
 
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	void RequestPlayerName();
+	
+	UFUNCTION(BlueprintCallable, Category = "Client")
+	FString ReceivePlayerName();
+
 
 	void SendDisconnectMessage();
 
