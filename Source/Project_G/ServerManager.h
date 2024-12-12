@@ -58,6 +58,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Server")
 	void StartServer();
 
+	UFUNCTION(BlueprintCallable, Category = "Server")
+	void ShutdownServer();
+
 	void RunServer();
 	void HandleClient(SOCKET ClientSocket);
 	void BeginDestroy();
@@ -65,6 +68,7 @@ public:
 	void AddPlayer(SOCKET ClientSocket, const FString& PlayerName);
 	void AddCardToPlayer(SOCKET ClientSocket, const FString& CardRowName);
 	void PassTurnToNextPlayer();
+	void RemovePlayer(const FString& ClientID);
 	FString DrawCard();
 	int32 CalculateScore(const TArray<FString>& PlayerCards);
 	bool IsPlayerTurn(const FString& ClientID);
