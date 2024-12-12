@@ -292,6 +292,43 @@ void AClientManager::DisconnectFromServer()
     }
 }
 
+void AClientManager::RequestPlayerName()
+{
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return;
+    }
+
+    FString Message = "GetMyName";
+    send(ClientSocket, TCHAR_TO_ANSI(*Message), Message.Len(), 0);
+    UE_LOG(LogTemp, Log, TEXT("Sent request for player's name."));
+}
+
+FString AClientManager::ReceivePlayerName()
+{
+    if (ClientSocket == INVALID_SOCKET)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client is not connected to the server."));
+        return "Unknown";
+    }
+
+    char Buffer[1024];
+    int BytesReceived = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+
+    if (BytesReceived > 0)
+    {
+        Buffer[BytesReceived] = '\0';
+        FString PlayerName = FString(ANSI_TO_TCHAR(Buffer));
+        UE_LOG(LogTemp, Log, TEXT("Received player name: %s"), *PlayerName);
+        return PlayerName;
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Failed to receive player name response."));
+    return "Unknown";
+}
+
+
 
 
 
